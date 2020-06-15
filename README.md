@@ -15,8 +15,6 @@ If you want to compile the XPA software by your own, you can reference to my CMa
 ### Running XPA examples
 To run the MMNet executable, you only need to invoke ./XPA on the Linux command line with the required parameters in the format - -option optionValue. The following is an example to show how to run XPA.
   ```
-  A toy example for XPA. 
-  ```
   ./XPA --bfile genotype --phenoFile phenotype --phenoCol diabetes --covarFile cov.txt 
   --auxbfile auxgenotype --auxphenoFile auxphenotype --auxphenoCol diabetes 
   --auxcovarFile auxcov.txt--predbfile predgenotype --precovarFile precov.txt --numThreads 8 
