@@ -21,7 +21,7 @@ To run the MMNet executable, you only need to invoke ./XPA on the Linux command 
   --geneticCorr true --outputFile ./result
   ```
 ### Contact Info
-If you have comments or questions about the XPA software, please contact Shunkang Zhang, szhangcj@connect.ust.hk. Welcome more suggestions to further improve the software.
+If you have comments or questions about the XPA software, please contact Can Yang, macyang@ust.hk and Shunkang Zhang, szhangcj@connect.ust.hk. Welcome more suggestions to further improve the software.
 
 ### License
 XPA is free software under the GNU General Public License v3.0 (GPLv3).
