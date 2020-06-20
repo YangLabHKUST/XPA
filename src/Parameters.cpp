@@ -73,7 +73,7 @@ bool Params::processCommandLineArgs(int argc, char **argv) {
       ("phenoCol", value<vector<string> >(&phenoCols), "select phenotype column include in model")
       ("auxphenoCol", value<vector<string> >(&auxphenoCols), "select auxiliary phenotype column include in model")
       ("phenoUseFam", "whether use the 6th col as phenotype")
-      ("associationTest", value<bool>(&associationTest)->default_value(false), "whether compute the association test")
+      //("associationTest", value<bool>(&associationTest)->default_value(false), "whether compute the association test")
       ("prediction", value<bool>(&prediction)->default_value(false), "whether predict the new data (one dataset only)")
       ("geneticCorr",
        value<bool>(&geneticCorr)->default_value(false),

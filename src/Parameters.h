@@ -69,7 +69,7 @@ class Params {
   uint64 maxIterationConj; // number of max iteration in conjugate gradient
   double convergenceLevel; // convergence level of conjugate gradient
   bool useExactTrace;
-  bool associationTest;
+  bool associationTest = false;
   bool prediction;
   bool geneticCorr;
   bool samplesCalibrationFactor;
