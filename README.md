@@ -3,7 +3,7 @@ This GitHub project provides the implementation of XPA
 
 ## Overview 
 
-The XPA aims to analysis large scale genetic cross-population analysis.
+The XPA aims to perform large-scale cross-population analysis.
 
 ## Download and compile
 ### Download
