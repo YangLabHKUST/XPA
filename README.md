@@ -7,7 +7,7 @@ The XPA aims to perform large-scale cross-population analysis.
 
 ## Download and compile
 ### Download
-You can directly download the latest version of the XPA software from the Github project. Now we only release the initial version and we keep updating it.
+You can directly download the latest version of the XPA software from the Github project. Now we only release the initial version and we keep updating it. https://github.com/YangLabHKUST/XPA/releases
 ### Compile 
 If you want to compile the XPA software by your own, you can reference to my CMakeList.txt file. Please note that you should modify the path of Intel Math Kernel Library according to your own pc.  
 -Intel Math Kernel Library. In order to improve the speed of basic linear algebra involved in the XPA software, we use the Intel Math Kernel Library.  
