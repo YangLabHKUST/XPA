@@ -35,6 +35,7 @@ class GenoData : public GenoBasis {
   uchar *genotypes; // M x Nstride / 4 genotype data
 
   std::map<std::string, uint64> snpID_position; // to store the snpID and position
+  std::vector<std::string> modelSnpsFiles;
 
   /**
    * Read SNPs information from Bim files and set mask for removed SNPs
@@ -52,7 +53,9 @@ class GenoData : public GenoBasis {
   GenoData(const std::string &_famFile, const std::vector<std::string> &_bimFiles,
            const std::vector<std::string> &_bedFiles,
            const std::vector<std::string> &_removeSNPsFiles,
-           const std::vector<std::string> &_removeIndivsFiles, double _maxMissingPerSnp,
+           const std::vector<std::string> &_removeIndivsFiles,
+           const std::vector<std::string> &_modelSnpsFiles,
+           double _maxMissingPerSnp,
            double _maxMissingPerIndiv);
 
   GenoData(const GenoData &) = delete; // disable copy constructor

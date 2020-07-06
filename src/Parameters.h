@@ -41,6 +41,7 @@ class Params {
   std::vector<std::string> auxremoveIndivsFiles;
   std::vector<std::string> predremoveIndivsFiles;
   std::vector<std::string> removeSnpsFiles, auxremoveSnpsFiles; // SNPs to remove
+  std::vector<std::string> modelSnpsFiles, auxmodelSnpsFiles; // SNPs included in analysis
   std::vector<std::string> predremoveSnpsFiles; // Todo: implement the remove function in prediction files
 
   // for phenotype input
@@ -74,6 +75,7 @@ class Params {
   bool geneticCorr;
   bool samplesCalibrationFactor;
   bool useApproFixEffect;
+  bool RAMeff; // whether use RAM efficient model
 
   std::string imputeMethod;
 
@@ -89,6 +91,7 @@ class Params {
   std::vector<std::string> predbimFileTemplates, predbedFileTemplates;
   std::vector<std::string> auxbimFileTemplates, auxbedFileTemplates;
   std::vector<std::string> removeIndivFileTemplates, removeSnpsFileTemplates;
+  std::vector<std::string> modelSnpsFileTemplates, auxmodelSnpsFileTemplates;
   std::vector<std::string> auxremoveIndivFileTemplates, auxremoveSnpsFileTemplates;
   std::vector<std::string> covarColTemplates, auxcovarColTemplates, precovarColTemplates;
 

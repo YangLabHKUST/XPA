@@ -131,6 +131,10 @@ class GeneticCorr {
                         double (*predictionSnpLookupTable)[4], const GenoData &predictData) const;
   void predictFixEff(uint64 numPredict, double *fixEff, const double *predictCovarMatrix) const;
 
+  // interface for RAM econ model
+  void normalizeSingleSnp(uchar* genoLine, double* normalizedSnp, uint64 numSamples, uint64 numUsed); // normalize single SNP and store in normalizedSnp
+  void computeSinglePosteriorMean(const vector <string> &bimFiles, const vector <string> &bedFiles, const double* phenoData, char whichDataset);
+
  public:
   GeneticCorr(const GenoData &_genoData,
               const CovarBasis<GenoData> &_covarBasis,
@@ -149,7 +153,12 @@ class GeneticCorr {
 
   void compVCM(const double *genoProjecPheno, const double *auxProjectPheno);
   void estFixEff(const double *mainGenoPheno, const double *auxGenoPheno, bool useApproximate);
+  // this function will use the SNPs which have already been loaded
   void estPosteriorMean();
+  // this function will read data from file and compute the posterior mean
+  // so you need to specify the bimFiles and bedFiles
+  void estPosteriorMean(const vector <string> &bimFilesG, const vector <string> &bedFilesG,
+                        const vector <string> &bimFilesA, const vector <string> &bedFilesA);
   void predict(double *output, const GenoData &predictData, const CovarBasis<GenoData> &predictCov) const;
 };
 }

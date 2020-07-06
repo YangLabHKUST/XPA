@@ -1280,6 +1280,158 @@ void GeneticCorr::estPosteriorMean() {
   ALIGN_FREE(temp_result);
 }
 
+void GeneticCorr::normalizeSingleSnp(uchar *genoLine, double *normalizedSnp, uint64 numSamples, uint64 numUsed) {
+  // compute mean and var for specific SNP
+  uchar genoBase = (uchar) 0;
+  double sumGenoNonMissing = 0;
+  int numGenoNonMissing = 0;
+  for (uint64 n = 0; n < numSamples; n++) {
+    if (maskIndivs[n] // important! don't use masked-out values
+        && (genoLine[n] - genoBase) != 9) {
+      sumGenoNonMissing += (genoLine[n] - genoBase);
+      numGenoNonMissing++;
+    }
+  }
+
+  double mean = sumGenoNonMissing / static_cast<double>(numSamples - 1);
+  for (uint64 n = 0; n < numSamples; n++) {
+    if (maskIndivs[n]) {
+      if ((genoLine[n] - genoBase) == 9)
+        normalizedSnp[n] = 0;
+      else
+        normalizedSnp[n] = static_cast<double>(genoLine[n] - genoBase) - mean; // here we transform the char to double
+    } else
+      assert((genoLine[n] - genoBase) == 0);
+  }
+
+  // compute the variance and normalize snp
+  double meanCenterNorm2 = NumericUtils::norm2(normalizedSnp, numSamples);
+  double invMeanCenterNorm = sqrt(static_cast<double>(numUsed - 1) / meanCenterNorm2);
+
+  for (uint64 n = 0; n < numSamples; n++)
+    normalizedSnp[n] *= invMeanCenterNorm;
+}
+
+void GeneticCorr::computeSinglePosteriorMean(const vector<string> &bimFiles, const vector<string> &bedFiles,
+                                            const double* phenoData, char whichDataset) {
+  // set variables according to different datasets
+  uint64 numSamples, numUsed, numPad;
+  const double* conjugateResult = nullptr;
+  if (whichDataset == 'G') {
+    numPad = genoData.getNpad();
+    numUsed = genoData.getNused();
+    numSamples = genoData.getN();
+    conjugateResult = phenoData;
+  } else {
+    numPad = auxgenoData.getNpad();
+    numUsed = auxgenoData.getNused();
+    numSamples = auxgenoData.getN();
+    conjugateResult = phenoData + NpadGeno; // make shift according to different dataset
+  }
+
+  // compute mu = X^TA, where A is a vector
+  // we need to read data from file and compute the result line by line
+  FileUtils::SafeIfstream finBim, finBed;
+  uint64 mbed = 0;
+  uchar *genoLine = ALIGN_ALLOCATE_UCHARS(numSamples);
+  uchar *bedLineIn = ALIGN_ALLOCATE_UCHARS(numPad>>2);
+  double* normalizedSnp = ALIGN_ALLOCATE_DOUBLES(numPad);
+
+  // read the main dataset from file and compute the first part result
+  for (uint i = 0; i < bedFiles.size(); i++) {
+    finBim.open(bimFiles[i]);
+    finBed.open(bedFiles[i], std::ios::in | std::ios::binary);
+    uchar header[3];
+    finBed.read((char *) header, 3);
+    if (!finBed || header[0] != 0x6c || header[1] != 0x1b || header[2] != 0x01) {
+      cerr << "ERROR: Incorrect first three bytes of bed file: " << bedFiles[i] << endl;
+      exit(1);
+    }
+
+    string line;
+    while (getline(finBim, line)) {
+      // read bed genotype and normalize
+      genoData.readBedLine(genoLine, bedLineIn, finBed);
+      normalizeSingleSnp(genoLine, normalizedSnp, numPad, numUsed);
+      // store the dot result
+      posteriorMean[mbed] += NumericUtils::dot(normalizedSnp, conjugateResult, numPad);
+      mbed++;
+    }
+  }
+
+  ALIGN_FREE(genoLine);
+  ALIGN_FREE(bedLineIn);
+  ALIGN_FREE(normalizedSnp);
+}
+
+void GeneticCorr::estPosteriorMean(const vector <string> &bimFilesG, const vector <string> &bedFilesG,
+                                   const vector <string> &bimFilesA, const vector <string> &bedFilesA) {
+  uint64 totalSamples = NpadGeno + Npadaux;
+  uint64 totalCom = covarBasis.getC() + auxcovarBasis.getC();
+  // compute yhat = omega-1ZW
+  double *yhat = ALIGN_ALLOCATE_DOUBLES(totalSamples);
+  MKL_INT m = totalSamples;
+  MKL_INT n = totalCom;
+  double alpha = 1.0;
+  MKL_INT lda = m;
+  double beta = 0.0;
+  MKL_INT incx = 1;
+  MKL_INT incy = 1;
+  double *inputMatrix = conjugateResultFixEff + totalSamples; // the first column is the result of oinvy
+  cblas_dgemv(CblasColMajor, CblasNoTrans, m, n, alpha, inputMatrix, lda, fixEffect.data(), incx, beta, yhat, incy);
+
+  // compute omega-1y - yhat
+  double *omegaInvy = conjugateResultFixEff;
+  double *phenoData = ALIGN_ALLOCATE_DOUBLES(totalSamples);
+
+  for (uint64 n = 0; n < totalSamples; n++) {
+    phenoData[n] = omegaInvy[n] - yhat[n];
+  }
+
+  // scale the result of conjugate gradient (refer to the document)
+  NumericUtils::scaleElem(phenoData, sigma2g, NpadGeno);
+  NumericUtils::scaleElem(phenoData + NpadGeno, delta, Npadaux);
+
+  // resize posteriorMean and store the result
+  posteriorMean.resize(M);
+
+  // compute the main geno dataset result
+  computeSinglePosteriorMean(bimFilesG, bedFilesG, phenoData, 'G');
+
+  // compute the aux geno dataset result
+  computeSinglePosteriorMean(bimFilesA, bedFilesA, phenoData, 'A');
+
+  for (uint64 m = 0; m < M; m++) {
+    posteriorMean[m] /= sqrt(M);
+  }
+
+  double subIntercept = 0;
+  for (uint64 m = 0; m < M; m++) {
+    posteriorMean[m] /= sqrt(M) / genoMeanstd[m].second;
+    subIntercept += posteriorMean[m] * genoMeanstd[m].first;
+  }
+
+  fixEffect[0] -= subIntercept;
+
+  FileUtils::SafeOfstream fout;
+  std::string outputMean = outputFile + "_posteriorMean.txt";
+  fout.open(outputMean);
+  for (uint64 m = 0; m < M; m++) {
+    fout << posteriorMean[m] << "\n";
+  }
+  fout.close();
+
+  std::string outputFix = outputFile + "_fixeff.txt";
+  fout.open(outputFix);
+  for (int i = 0; i < totalCom; i++) {
+    fout << fixEffect[i] << endl;
+  }
+  fout.close();
+
+  ALIGN_FREE(yhat);
+  ALIGN_FREE(phenoData);
+}
+
 void GeneticCorr::predict(double *output, const GenoData &predictData, const CovarBasis<GenoData> &predictCov) const {
   uint64 numPredict = predictData.getNpad(); // get number of prediction samples
 

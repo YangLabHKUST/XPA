@@ -172,14 +172,16 @@ vector<SnpInfo> GenoBasis::readBimFile(const std::string &bimFile) {
   return ret;
 }
 
-void GenoBasis::readBedLine(uchar *genoLine, uchar *bedLineIn, FileUtils::SafeIfstream &fin) const {
+void GenoBasis::readBedLine(uchar *genoLine, uchar *bedLineIn, FileUtils::SafeIfstream &fin, bool loadGenoLine) const {
   fin.read((char *) bedLineIn, (Nbed + 3) >> 2);
-  const int bedToGeno[4] = {2, 9, 1, 0};
-  for (uint64 nbed = 0; nbed < Nbed; nbed++)
-    if (bedIndivToRemoveIndex[nbed] != -1) {
-      int genoValue = bedToGeno[(bedLineIn[nbed >> 2] >> ((nbed & 3) << 1)) & 3];
-      genoLine[bedIndivToRemoveIndex[nbed]] = (uchar) genoValue;
-    }
+  if (loadGenoLine) {
+    const int bedToGeno[4] = {2, 9, 1, 0};
+    for (uint64 nbed = 0; nbed < Nbed; nbed++)
+      if (bedIndivToRemoveIndex[nbed] != -1) {
+        int genoValue = bedToGeno[(bedLineIn[nbed >> 2] >> ((nbed & 3) << 1)) & 3];
+        genoLine[bedIndivToRemoveIndex[nbed]] = (uchar) genoValue;
+      }
+  }
 }
 
 double GenoBasis::computeAlleleFreq(const uchar genoLine[], const double subMaskIndivs[]) const {
@@ -240,6 +242,10 @@ void GenoBasis::updateNused() {
 
 uint64 GenoBasis::getNpad() const {
   return Nstride;
+}
+
+uint64 GenoBasis::getN() const {
+  return N;
 }
 
 uint64 GenoBasis::getM() const {

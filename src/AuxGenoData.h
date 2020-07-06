@@ -39,13 +39,13 @@ class AuxGenoData : public GenoBasis {
 
   std::vector<SnpInfo> snpOrderInfo;
 
+  std::vector<std::string> modelSnpsFiles; // store the path of modelSnpsFiles
+
   std::vector<SnpInfo> processSnps(std::vector<uint64> &Mfiles,
-                                   const std::vector<std::string> &bimFiles,
-                                   const std::vector<std::string> &removeSNPsFiles);
+                                   const std::vector<std::string> &bimFiles);
  public:
   AuxGenoData(const std::string &_famFile, const std::vector<std::string> &_bimFiles,
               const std::vector<std::string> &_bedFiles,
-              const std::vector<std::string> &_removeSNPsFiles,
               const std::vector<std::string> &_removeIndivsFiles, double _maxMissingPerSnp,
               double _maxMissingPerIndiv, const std::map<std::string, uint64> &_snpRef);
 

@@ -139,6 +139,11 @@ class LMMCPU {
   */
   void predictFixEff(uint64 numPredict, double *fixEff, const double *predictCovarMatrix) const;
 
+  // interface for RAM econ model
+  void normalizeSingleSnp(uchar* genoLine, double* normalizedSnp, uint64 numSamples, uint64 numUsed); // normalize single SNP and store in normalizedSnp
+  void computeSinglePosteriorMean(const vector <string> &bimFiles, const vector <string> &bedFiles, const double* phenoData);
+
+
  public:
   LMMCPU(const GenoData &_genoData,
          const CovarBasis<GenoData> &_covarBasis,
@@ -188,6 +193,9 @@ class LMMCPU {
    * @param predictCov class dealing with predict covariate 
   */
   void predict(double *output, const GenoData &predictData, const CovarBasis<GenoData> &predictCov) const;
+
+  void computePosteriorMean(const vector <string> &bimFiles, const vector <string> &bedFiles,
+                        const double* pheno, bool useApproximate);
 };
 }
 #endif //LMMNET_LMMCPU_H

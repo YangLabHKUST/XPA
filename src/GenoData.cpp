@@ -64,6 +64,7 @@ vector<SnpInfo> GenoData::processSnps(std::vector<uint64> &Mfiles, const std::ve
   // marker for storing snps
   const int excludeVCnum = -1;
   const int defaultVCnum = 1;
+  const int includeVCnum = 2;
 
   vector<int> snpVCnum(Mbed, (char) defaultVCnum);
   // check the duplicate snps
@@ -77,7 +78,7 @@ vector<SnpInfo> GenoData::processSnps(std::vector<uint64> &Mfiles, const std::ve
       rsIDs.insert(bedSnps[mbed].ID);
   }
 
-  if (!removeSNPsFiles.empty()) {
+  if (!removeSNPsFiles.empty() || !modelSnpsFiles.empty()) {
     // create dictionary rsID -> index in full bed snp list
     std::map<string, uint64> rsID_to_ind;
     for (uint64 mbed = 0; mbed < Mbed; mbed++)
@@ -109,6 +110,40 @@ vector<SnpInfo> GenoData::processSnps(std::vector<uint64> &Mfiles, const std::ve
       if (numAbsent)
         cerr << "WARNING: " << numAbsent << " SNP(s) not found in data set" << endl;
     }
+
+    // include model snps
+    for (uint f = 0; f < modelSnpsFiles.size(); f++) {
+      const string &modelSnpsFile = modelSnpsFiles[f];
+      cout << "Reading modelSnps file (SNPs to include): " << modelSnpsFile << endl;
+      fin.open(modelSnpsFile);
+      int numInclude = 0;
+      int numAbsent = 0;
+      int numAlreadyExlude = 0;
+      while (getline(fin, line)) {
+        std::istringstream iss(line);
+        string rsID;
+        iss >> rsID;
+        if (rsID_to_ind.find(rsID) == rsID_to_ind.end()) {
+          if (numAbsent < 5)
+            cerr << "WARNING: Unable to find SNP to include in model: " << rsID << endl;
+          numAbsent++;
+        } else if (snpVCnum[rsID_to_ind[rsID]] == excludeVCnum) {
+          if (numAlreadyExlude < 5)
+            cerr << "WARNING: SNP has been excluded: " << rsID << endl;
+          numAlreadyExlude++;
+        } else {
+          snpVCnum[rsID_to_ind[rsID]] = includeVCnum;
+          numInclude++;
+        }
+      }
+
+      fin.close();
+      cout << "Include " << numInclude << " SNP(s) in model" << endl;
+      if (numAbsent)
+        cerr << "WARNING: " << numAbsent << " SNP(s) not found in dataset" << endl;
+      if (numAlreadyExlude)
+        cerr << "WARNING: " << numAlreadyExlude << " SNP(s) had been excluded" << endl;
+    }
   }
 
   // determine number of snps remaining post-exclusion and set up index
@@ -117,9 +152,15 @@ vector<SnpInfo> GenoData::processSnps(std::vector<uint64> &Mfiles, const std::ve
   for (uint64 mbed = 0; mbed < Mbed; mbed++) {
     int vcNum = snpVCnum[mbed];
     bedSnps[mbed].vcNum = vcNum;
-    if (vcNum == defaultVCnum) {
-      M++;
-    } else if (vcNum == excludeVCnum) {
+    if (!modelSnpsFiles.empty()) {
+      if (vcNum == includeVCnum)
+        M++;
+    } else {
+      if (vcNum == defaultVCnum) {
+        M++;
+      }
+    }
+    if (vcNum == excludeVCnum) {
       Mexclude++;
     }
   }
@@ -136,13 +177,23 @@ vector<SnpInfo> GenoData::processSnps(std::vector<uint64> &Mfiles, const std::ve
 GenoData::GenoData(const std::string &_famFile, const std::vector<std::string> &_bimFiles,
                    const std::vector<std::string> &_bedFiles,
                    const std::vector<std::string> &_removeSNPsFiles,
-                   const std::vector<std::string> &_removeIndivsFiles, double _maxMissingPerSnp,
-                   double _maxMissingPerIndiv) : GenoBasis(_famFile, _bimFiles, _bedFiles, _removeSNPsFiles,
+                   const std::vector<std::string> &_removeIndivsFiles,
+                   const std::vector<std::string> &_modelSnpsFiles,
+                   double _maxMissingPerSnp,
+                   double _maxMissingPerIndiv) : modelSnpsFiles(_modelSnpsFiles),
+                                                GenoBasis(_famFile, _bimFiles, _bedFiles, _removeSNPsFiles,
                                                            _removeIndivsFiles, _maxMissingPerSnp, _maxMissingPerIndiv) {
 
   // process snp file and update the snpID_position map
   vector<uint64> Mfiles;
   vector<SnpInfo> bedSnps = processSnps(Mfiles, bimFiles, _removeSNPsFiles);
+
+  // if provide model snp file we only use SNPs in it
+  int includeMarker = 0;
+  if (!modelSnpsFiles.empty())
+    includeMarker = 2;
+  else
+    includeMarker = 1;
 
   // allocate memory for row genotype data
   cout << "Allocating " << M << " x " << Nstride << "/4 bytes to store genotypes" << endl;
@@ -175,25 +226,27 @@ GenoData::GenoData(const std::string &_famFile, const std::vector<std::string> &
     uchar *bedLineIn = ALLOCATE_UCHARS((Nbed + 3) >> 2);
     int numSnpsFailedQC = 0;
     for (uint64 mfile = 0, goodSnp = 0; mfile < Mfiles[i]; mfile++, mbed++) {
-      readBedLine(genoLine, bedLineIn, fin);
+      readBedLine(genoLine, bedLineIn, fin, bedSnps[mbed].vcNum != -1);
       if (bedSnps[mbed].vcNum != -1) { // if the snp is not excluded
         double snpMissing = computeSnpMissing(genoLine, maskIndivs);
         bool snpPassQC = snpMissing <= maxMissingPerSnp;
         if (snpPassQC) {
-          storeBedLine(bedLineOut, genoLine);
-          bedLineOut += Nstride >> 2;
-          snps.push_back(bedSnps[mbed]);
-          snps.back().MAF = computeMAF(genoLine, maskIndivs);
-          // update indiv QC info
-          for (uint64 n = 0; n < N; n++) {
-            if (genoLine[n] == 9) {
-              numMissingPerIndiv[n]++;
+          if (bedSnps[mbed].vcNum == includeMarker) {
+            storeBedLine(bedLineOut, genoLine);
+            bedLineOut += Nstride >> 2;
+            snps.push_back(bedSnps[mbed]);
+            snps.back().MAF = computeMAF(genoLine, maskIndivs);
+            // update indiv QC info
+            for (uint64 n = 0; n < N; n++) {
+              if (genoLine[n] == 9) {
+                numMissingPerIndiv[n]++;
+              }
             }
-          }
 
-          // extract the good snps information (pass the QC)
-          snpID_position[bedSnps[mbed].ID] = goodSnp;
-          goodSnp++;
+            // extract the good snps information (pass the QC)
+            snpID_position[bedSnps[mbed].ID] = goodSnp;
+            goodSnp++;
+          }
         } else {
           if (numSnpsFailedQC < 5)
             cout << "Filtering snp " << bedSnps[mbed].ID << ": "

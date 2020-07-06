@@ -43,8 +43,7 @@ using std::cerr;
 using std::endl;
 using FileUtils::getline;
 
-vector<SnpInfo> AuxGenoData::processSnps(std::vector<uint64> &Mfiles, const std::vector<std::string> &bimFiles,
-                                         const std::vector<std::string> &removeSNPsFiles) {
+vector<SnpInfo> AuxGenoData::processSnps(std::vector<uint64> &Mfiles, const std::vector<std::string> &bimFiles) {
   FileUtils::SafeIfstream fin;
   string line;
 
@@ -69,7 +68,6 @@ vector<SnpInfo> AuxGenoData::processSnps(std::vector<uint64> &Mfiles, const std:
 AuxGenoData::AuxGenoData(const std::string &_famFile,
                          const std::vector<std::string> &_bimFiles,
                          const std::vector<std::string> &_bedFiles,
-                         const std::vector<std::string> &_removeSNPsFiles,
                          const std::vector<std::string> &_removeIndivsFiles,
                          double _maxMissingPerSnp,
                          double _maxMissingPerIndiv,
@@ -80,7 +78,18 @@ AuxGenoData::AuxGenoData(const std::string &_famFile,
 
   // process snp file and update the snpID_position map
   vector<uint64> Mfiles;
-  vector<SnpInfo> bedSnps = processSnps(Mfiles, bimFiles, _removeSNPsFiles);
+  vector<SnpInfo> bedSnps = processSnps(Mfiles, bimFiles);
+
+  // according to the reference list to update M, because we will not include all snps
+  uint64 M_update = 0;
+  for (uint64 mbed = 0; mbed < M; mbed++) {
+    if (snpID_position.find(bedSnps[mbed].ID) != snpID_position.end())
+      M_update++;
+  }
+
+  // update the number of SNPs according to the reference list
+  // we can allocate less memory
+  M = M_update;
 
   // allocate memory for row genotype data
   cout << "Allocating " << M << " x " << Nstride << "/4 bytes to store genotypes" << endl;
@@ -165,8 +174,9 @@ AuxGenoData::AuxGenoData(const std::string &_famFile,
     fin.close();
   }
 
-  M = snps.size();
+//  M = snps.size();
 
+  assert(M == snps.size());
   cout << "The number of total overlap snps is " << M << endl;
 
   // QC of indivs for missing

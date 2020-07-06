@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
   cout << endl << "***** Reading genotype data *****" << endl << endl;
 
   GenoData genoData(params.famFile, params.bimFiles, params.bedFiles, params.removeSnpsFiles,
-                    params.removeIndivsFiles, params.maxMissingPerSnp, params.maxMissingPerIndiv);
+                    params.removeIndivsFiles, params.modelSnpsFiles, params.maxMissingPerSnp, params.maxMissingPerIndiv);
   const vector<SnpInfo> &snps = genoData.getSnpInfo();
 
   cout << "Time for setting up dataset and read data " << timer.update_time() << " sec" << endl;
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
     // get the snp reference list from main dataset
     const std::map<std::string, uint64> &snpRef = genoData.getsnpRef();
     cout << endl << "***** Read the auxiliary data *****" << endl;
-    AuxGenoData auxData(params.auxfamFile, params.auxbimFiles, params.auxbedFiles, params.auxremoveSnpsFiles,
+    AuxGenoData auxData(params.auxfamFile, params.auxbimFiles, params.auxbedFiles,
                         params.auxremoveIndivsFiles, params.maxMissingPerSnp, params.maxMissingPerIndiv, snpRef);
 
     if (genoData.getM() != auxData.getM()) {
@@ -185,13 +185,19 @@ int main(int argc, char **argv) {
 
     cout << endl << "***** Estimate the posterior Mean *****" << endl;
 
-    geneticCorr.estPosteriorMean();
+    // whether use RAM efficient model
+    if (params.RAMeff) {
+      cout << endl << "Using RAM efficient model" << endl;
+      geneticCorr.estPosteriorMean(params.bimFiles, params.bedFiles, params.auxbimFiles, params.auxbedFiles);
+    } else {
+      geneticCorr.estPosteriorMean();
+    }
 
     cout << "Time for estimating posterior Mean is " << timer.update_time() << " sec" << endl;
 
     cout << endl << "***** Read the prediction data *****" << endl << endl;
     GenoData predictData(params.predfamFile, params.predbimFiles, params.predbedFiles, params.predremoveSnpsFiles,
-                         params.predremoveIndivsFiles, params.maxMissingPerSnp, params.maxMissingPerIndiv);
+                         params.predremoveIndivsFiles, params.modelSnpsFiles, params.maxMissingPerSnp, params.maxMissingPerIndiv);
 
     const vector<SnpInfo> &predictSnps = predictData.getSnpInfo();
 
@@ -244,13 +250,18 @@ int main(int argc, char **argv) {
     cout << "Timer for estimating fix effect " << timer.update_time() << " esc" << endl;
 
     cout << endl << "***** Compute the posterior mean *****" << endl << endl;
-    lmmcpu.computePosteriorMean(phenodblorigin[0].data(), params.useApproFixEffect);
+    if (params.RAMeff) {
+      cout << endl << "Using RAM efficient model" << endl;
+      lmmcpu.computePosteriorMean(params.bimFiles, params.bedFiles, phenodblorigin[0].data(), params.useApproFixEffect);
+    } else {
+      lmmcpu.computePosteriorMean(phenodblorigin[0].data(), params.useApproFixEffect);
+    }
 
     cout << "Timer for computing posterior mean " << timer.update_time() << " esc" << endl;
 
     cout << endl << "***** Read the prediction data *****" << endl << endl;
     GenoData singlepredictData(params.predfamFile, params.predbimFiles, params.predbedFiles, params.predremoveSnpsFiles,
-                               params.predremoveIndivsFiles, params.maxMissingPerSnp, params.maxMissingPerIndiv);
+                               params.predremoveIndivsFiles, params.modelSnpsFiles, params.maxMissingPerSnp, params.maxMissingPerIndiv);
 
     const vector<SnpInfo> &predictSnps = singlepredictData.getSnpInfo();
 

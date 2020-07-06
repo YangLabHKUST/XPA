@@ -66,7 +66,8 @@ bool Params::processCommandLineArgs(int argc, char **argv) {
        "select individuals removed from auxiliary model")
       ("removeSnps", value<vector<string> >(&removeSnpsFileTemplates), "select SNPs removed from model")
       ("auxremoveSnps", value<vector<string> >(&auxremoveSnpsFileTemplates), "select SNPs removed from auxiliary model")
-
+      ("modelSnps", value<vector<string> >(&modelSnpsFileTemplates), "select SNPs removed from model")
+      ("auxmodelSnps", value<vector<string> >(&auxmodelSnpsFileTemplates), "select SNPs removed from auxiliary model")
       // for phenotype input
       ("phenoFile", value<string>(&phenoFile), "phenotype file (header required)")
       ("auxphenoFile", value<string>(&auxphenoFile), "aux phenotype file (header required)")
@@ -116,6 +117,7 @@ bool Params::processCommandLineArgs(int argc, char **argv) {
       ("useExactTrace", value<bool>(&useExactTrace)->default_value(false), "whether compute the exact trace")
       ("useApproFixEffect", value<bool>(&useApproFixEffect)->default_value(false), "whether use the approximate fix effect to reduce computation time")
       ("imputeMethod", value<string>(&imputeMethod)->default_value("mean"), "The way to impute missing value. Either using mean value or zero")
+      ("RAMeff", value<bool>(&RAMeff)->default_value(false), "Whether use RAM efficient model")
 
       ("outputFile", value<string>(&outputFile)->default_value("./result.txt"), "output file for the final result");
 
@@ -213,6 +215,8 @@ bool Params::checkArguments(boost::program_options::command_line_parser &cmd,
     removeSnpsFiles = analysisTemplates(removeSnpsFileTemplates);
     auxremoveIndivsFiles = analysisTemplates(auxremoveIndivFileTemplates);
     auxremoveSnpsFiles = analysisTemplates(auxremoveSnpsFileTemplates);
+    modelSnpsFiles = analysisTemplates(modelSnpsFileTemplates);
+    auxmodelSnpsFiles = analysisTemplates(auxmodelSnpsFileTemplates);
     covarCols = analysisTemplates(covarColTemplates);
     auxcovarCols = analysisTemplates(auxcovarColTemplates);
     precovarCols = analysisTemplates(precovarColTemplates);
@@ -287,6 +291,8 @@ bool Params::checkArguments(boost::program_options::command_line_parser &cmd,
     FileUtils::requireEachEmptyOrReadable(auxremoveSnpsFiles);
     FileUtils::requireEachEmptyOrReadable(predremoveIndivsFiles);
     FileUtils::requireEachEmptyOrReadable(predremoveSnpsFiles);
+    FileUtils::requireEachEmptyOrReadable(modelSnpsFiles);
+    FileUtils::requireEachEmptyOrReadable(auxmodelSnpsFiles);
     FileUtils::requireEmptyOrReadable(phenoFile);
     FileUtils::requireEmptyOrReadable(auxphenoFile);
     FileUtils::requireEmptyOrReadable(covarFile);

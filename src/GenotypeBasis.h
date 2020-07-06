@@ -99,8 +99,9 @@ class GenoBasis {
    * @param genoLine the binary format of genetic data
    * @param bedLineIn the converted format of genetic data ({0, 1, 2, 9})
    * @param fin the filestream binded with SNPs file
+   * @param loadGenoLine whether load current genoline into memory
   */
-  void readBedLine(uchar genoLine[], uchar bedLineIn[], FileUtils::SafeIfstream &fin) const;
+  void readBedLine(uchar genoLine[], uchar bedLineIn[], FileUtils::SafeIfstream &fin, bool loadGenoLine=true) const;
 
   /**
    * Compute the allele frequency without masked individuals
@@ -146,6 +147,7 @@ class GenoBasis {
   uint64 getNpad() const;
   uint64 getM() const;
   uint64 getNused() const;
+  uint64 getN() const;
   std::vector<double> getFamPhenos() const;
   // output individual and snps masks to file
   void writeMaskSnps(uchar out[]) const;

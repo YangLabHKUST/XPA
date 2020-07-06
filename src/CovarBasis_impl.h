@@ -137,8 +137,9 @@ void CovarBasis<T>::initialize(const std::vector<std::string> &covarCols) {
     for (uint64 n = 0; n < Npad; n++) {
       covarMatirx[n] = 1;
     }
-    int totalRows = this->rowNames.size() - 1;
-    for (int row = 0; row < totalRows - 1; row++) {
+    int totalRows = this->rowNames.size();
+    int store_index = 1;
+    for (int row = 0; row < totalRows; row++) {
       bool found = false;
       for (int col = 0; col < covarCols.size(); col++)
         if (this->rowNames[row + 1] == covarCols[col]) {
@@ -148,15 +149,16 @@ void CovarBasis<T>::initialize(const std::vector<std::string> &covarCols) {
         }
 
       if (found) {
-        int store_index = row + 1;
+        int decode_index = row + 1;
         // store covariate matrix in double for further computatoin
         for (uint64 n = 0; n < Npad; n++) {
-          if (this->getEntryDbl(store_index, n) == this->missing_dbl) {
+          if (this->getEntryDbl(decode_index, n) == this->missing_dbl) {
             covarMatirx[store_index * Npad + n] = 0; // deal with the missing covariate
           } else {
-            covarMatirx[store_index * Npad + n] = this->getEntryDbl(store_index, n);
+            covarMatirx[store_index * Npad + n] = this->getEntryDbl(decode_index, n);
           }
         }
+        store_index++;
       }
     }
   } else { // default use all columns in covariate
