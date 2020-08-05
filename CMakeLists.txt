@@ -34,7 +34,7 @@ find_package(MPI REQUIRED)
 
 add_subdirectory(src)
 
-add_executable(MMNET ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+add_executable(XPA ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 target_link_libraries(dataIO PUBLIC ${Boost_LIBRARIES} OpenMP::OpenMP_CXX)
 target_link_libraries(Params PUBLIC dataIO)
