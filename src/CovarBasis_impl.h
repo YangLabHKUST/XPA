@@ -184,6 +184,13 @@ void CovarBasis<T>::initialize(const std::vector<std::string> &covarCols) {
   }
 
   // update the final mask according to the covariate file mask
+  if (this->filePath.empty()) {
+    // we do not mask any individual
+    for (uint64 n = 0; n < Npad; n++) {
+      maskForCov[n] = 1.0;
+    }
+  }
+  
   for (uint64 n = 0; n < Npad; n++) {
     maskIndivs[n] *= maskForCov[n];
   }

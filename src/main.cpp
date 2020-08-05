@@ -224,6 +224,7 @@ int main(int argc, char **argv) {
 
     double *predictOutput = ALIGN_ALLOCATE_DOUBLES(predictData.getNpad());
     geneticCorr.predict(predictOutput, predictData, predictCov);
+    ALIGN_FREE(predictOutput);
 
     return 0;
   }
@@ -290,6 +291,7 @@ int main(int argc, char **argv) {
     lmmcpu.predict(predictOutput, singlepredictData, predictCov);
 
     cout << "Timer for predict new data " << timer.update_time() << " esc" << endl;
+    ALIGN_FREE(predictOutput);
 
   }
 

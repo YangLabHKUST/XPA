@@ -179,8 +179,8 @@ bool GeneticCorr::normalizeSnps(uint64 m,
   if (numGenoNonMissing == 0) return 0;
 
   // mean-center and replace missing values with mean (centered to 0)
-//        double mean = sumGenoNonMissing / numGenoNonMissing;
-  double mean = sumGenoNonMissing / (numSamples - 1);
+  double mean = sumGenoNonMissing / numGenoNonMissing;
+  // double mean = sumGenoNonMissing / (numUsed - 1);
   for (uint64 n = 0; n < numSamples; n++) {
     if (maskIndivs[n]) {
       if (snpVector[n] == 9)
@@ -833,6 +833,16 @@ void GeneticCorr::estFixEff(const double *mainGenoPheno, const double *auxGenoPh
     memcpy(conjugateResultFixEff + NpadGeno, inputMatrix2, Npadaux * sizeof(double));
   }
 
+  FileUtils::SafeOfstream fout;
+  fout.open("./CGoutput.txt");
+  for (uint64 n = 0; n < NpadGeno + Npadaux; n++) {
+    for (int col = 0; col < 3; col++) {
+      fout << conjugateResultFixEff[col*(Npadaux+NpadGeno) + n] << "\t";
+    }
+    fout << "\n";
+  }
+  fout.close();
+
   uint64 totalSamples = NpadGeno + Npadaux;
   // create whole matrix z by merge two covariate matrix
   double *Z = ALIGN_ALLOCATE_DOUBLES(totalSamples * (batchSize1 + batchSzie2 - 2));
@@ -886,6 +896,13 @@ void GeneticCorr::estFixEff(const double *mainGenoPheno, const double *auxGenoPh
 
   cblas_dgemv(CblasColMajor, CblasTrans, m1, n1, alpha1, Z, lda1, vec, incx, beta1, ZTOinvy, incy);
 
+  // FileUtils::SafeOfstream fout;
+  fout.open("./ZTOinvy.txt");
+  for (int n = 0; n < totalComp; n++) {
+    fout << ZTOinvy[n] << "\n";
+  }
+  fout.close();
+  
   // compute the final fixed effect
   fixEffect.resize(totalComp);
 
@@ -909,6 +926,8 @@ void GeneticCorr::multXTmatrix(double *out, const double *matrix, int cols, cons
 
   double *snpBlock = ALIGN_ALLOCATE_DOUBLES(Npad * snpsPerBlock);
   double (*workTable)[4] = (double (*)[4]) ALIGN_ALLOCATE_MEMORY(omp_get_max_threads() * 256 * sizeof(*workTable));
+
+  memset(out, 0, M * cols * sizeof(double));
 
   for (uint64 m0 = 0; m0 < M; m0 += snpsPerBlock) {
     uint64 snpsPerBLockCrop = std::min(M, m0 + snpsPerBlock) - m0;
@@ -935,11 +954,13 @@ void GeneticCorr::multXTmatrix(double *out, const double *matrix, int cols, cons
     MKL_INT ldc = cols;
     double *temp_out = out + m0 * cols;
 
-//            cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, m, n, k, alpha, matrix, lda, snpBlock, ldb, beta, temp_out, ldc);
-    const char transA = 'T';
-    const char transB = 'N';
-    dgemm(&transA, &transB, &m, &n, &k, &alpha, matrix, &lda, snpBlock, &ldb, &beta, temp_out, &ldc);
+    cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, m, n, k, alpha, matrix, lda, snpBlock, ldb, beta, temp_out, ldc);
+    // const char transA = 'T';
+    // const char transB = 'N';
+    // dgemm(&transA, &transB, &m, &n, &k, &alpha, matrix, &lda, snpBlock, &ldb, &beta, temp_out, &ldc);
+
   }
+
 
   ALIGN_FREE(snpBlock);
   ALIGN_FREE(workTable);
@@ -983,10 +1004,10 @@ void GeneticCorr::multXmatrix(double *out, const double *matrix, int cols, const
     double beta = 1.0;
     const double *temp = matrix + m0 * ucol;
 
-//            cblas_dgemm(CblasColMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, snpBlock, lda, temp, ldb, beta, out, ldc);
-    const char transA = 'N';
-    const char transB = 'T';
-    dgemm(&transA, &transB, &m, &n, &k, &alpha, snpBlock, &lda, temp, &ldb, &beta, out, &ldc);
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasTrans, m, n, k, alpha, snpBlock, lda, temp, ldb, beta, out, ldc);
+    // const char transA = 'N';
+    // const char transB = 'T';
+    // dgemm(&transA, &transB, &m, &n, &k, &alpha, snpBlock, &lda, temp, &ldb, &beta, out, &ldc);
   }
 
   ALIGN_FREE(snpBlock);
@@ -1019,6 +1040,25 @@ void GeneticCorr::multXXTConjugate(double *out, const double *matrix, int cols, 
     for (uint64 n = 0; n < Npad; n++, m++)
       out[m] = invM * out[m] + vcmeps * matrix[m];
   }
+
+
+  //
+  // Multiply multMatrix with one column zero to check the final result
+  //
+  double *tempXtransMatrix = ALIGN_ALLOCATE_DOUBLES(M);
+  double *Zeros = ALIGN_ALLOCATE_DOUBLES(Npad);
+  double *checkResult = ALIGN_ALLOCATE_DOUBLES(Npad);
+
+  memset(Zeros, 0.0, Npad *sizeof(double));
+
+  multXTmatrix(tempXtransMatrix, Zeros, 1, whichDataset);
+  multXmatrix(checkResult, tempXtransMatrix, 1, whichDataset);
+
+  ALIGN_FREE(tempXtransMatrix);
+  ALIGN_FREE(Zeros);
+  ALIGN_FREE(checkResult);
+
+  // free the memory of normal computation
 
   ALIGN_FREE(XtransMatrix);
 }
@@ -1125,6 +1165,8 @@ void GeneticCorr::solveConjugateBatch(double *out, const double *inputMatrix1, c
 
   memcpy(r, p, totalSamples * cols * sizeof(double));
 
+  memset(out, 0.0, totalSamples * cols * sizeof(double));
+
   vector<double> rsold(cols), rsnew(cols);
   for (int col = 0; col < cols; col++) {
     double *temp_p = p + col * totalSamples;
@@ -1142,11 +1184,15 @@ void GeneticCorr::solveConjugateBatch(double *out, const double *inputMatrix1, c
     timer.update_time();
     multOmega(VmultCovCompVecs, p, cols);
 
+    // the result of multOmega is right
     for (uint64 numbatch = 0, m = 0; numbatch < cols; numbatch++) {
       double *p_temp = p + numbatch * totalSamples;
       double *Vp_temp = VmultCovCompVecs + numbatch * totalSamples;
 
       double alpha = rsold[numbatch] / NumericUtils::dot(p_temp, Vp_temp, totalSamples);
+
+      // output intermediate result to check error
+
       for (uint64 n = 0; n < totalSamples; n++, m++) {
         out[m] += alpha * p[m];
         r[m] -= alpha * VmultCovCompVecs[m];
@@ -1162,7 +1208,7 @@ void GeneticCorr::solveConjugateBatch(double *out, const double *inputMatrix1, c
     // check convergence condition
     bool converged = true;
     for (int numbatch = 0; numbatch < cols; numbatch++) {
-      if (sqrt(rsnew[numbatch] / rsoldOrigin[numbatch]) > 5e-4) {
+      if (sqrt(rsnew[numbatch] / rsoldOrigin[numbatch]) > 5e-6) {
         converged = false;
       }
     }
@@ -1179,7 +1225,7 @@ void GeneticCorr::solveConjugateBatch(double *out, const double *inputMatrix1, c
     printf(" Iter: %d, time = %.2f, maxRatio = %.4f, minRatio = %.4f, convergeRatio = %.4f \n",
            iter + 1, timer.update_time(), maxRatio, minRatio, 5e-4);
 
-    if (converged) {
+    if (converged && iter) {
       cout << "Conjugate gradient reaches convergence at " << iter + 1 << " iteration" << endl;
       ALIGN_FREE(p);
       ALIGN_FREE(r);
@@ -1280,158 +1326,6 @@ void GeneticCorr::estPosteriorMean() {
   ALIGN_FREE(temp_result);
 }
 
-void GeneticCorr::normalizeSingleSnp(uchar *genoLine, double *normalizedSnp, uint64 numSamples, uint64 numUsed) {
-  // compute mean and var for specific SNP
-  uchar genoBase = (uchar) 0;
-  double sumGenoNonMissing = 0;
-  int numGenoNonMissing = 0;
-  for (uint64 n = 0; n < numSamples; n++) {
-    if (maskIndivs[n] // important! don't use masked-out values
-        && (genoLine[n] - genoBase) != 9) {
-      sumGenoNonMissing += (genoLine[n] - genoBase);
-      numGenoNonMissing++;
-    }
-  }
-
-  double mean = sumGenoNonMissing / static_cast<double>(numSamples - 1);
-  for (uint64 n = 0; n < numSamples; n++) {
-    if (maskIndivs[n]) {
-      if ((genoLine[n] - genoBase) == 9)
-        normalizedSnp[n] = 0;
-      else
-        normalizedSnp[n] = static_cast<double>(genoLine[n] - genoBase) - mean; // here we transform the char to double
-    } else
-      assert((genoLine[n] - genoBase) == 0);
-  }
-
-  // compute the variance and normalize snp
-  double meanCenterNorm2 = NumericUtils::norm2(normalizedSnp, numSamples);
-  double invMeanCenterNorm = sqrt(static_cast<double>(numUsed - 1) / meanCenterNorm2);
-
-  for (uint64 n = 0; n < numSamples; n++)
-    normalizedSnp[n] *= invMeanCenterNorm;
-}
-
-void GeneticCorr::computeSinglePosteriorMean(const vector<string> &bimFiles, const vector<string> &bedFiles,
-                                            const double* phenoData, char whichDataset) {
-  // set variables according to different datasets
-  uint64 numSamples, numUsed, numPad;
-  const double* conjugateResult = nullptr;
-  if (whichDataset == 'G') {
-    numPad = genoData.getNpad();
-    numUsed = genoData.getNused();
-    numSamples = genoData.getN();
-    conjugateResult = phenoData;
-  } else {
-    numPad = auxgenoData.getNpad();
-    numUsed = auxgenoData.getNused();
-    numSamples = auxgenoData.getN();
-    conjugateResult = phenoData + NpadGeno; // make shift according to different dataset
-  }
-
-  // compute mu = X^TA, where A is a vector
-  // we need to read data from file and compute the result line by line
-  FileUtils::SafeIfstream finBim, finBed;
-  uint64 mbed = 0;
-  uchar *genoLine = ALIGN_ALLOCATE_UCHARS(numSamples);
-  uchar *bedLineIn = ALIGN_ALLOCATE_UCHARS(numPad>>2);
-  double* normalizedSnp = ALIGN_ALLOCATE_DOUBLES(numPad);
-
-  // read the main dataset from file and compute the first part result
-  for (uint i = 0; i < bedFiles.size(); i++) {
-    finBim.open(bimFiles[i]);
-    finBed.open(bedFiles[i], std::ios::in | std::ios::binary);
-    uchar header[3];
-    finBed.read((char *) header, 3);
-    if (!finBed || header[0] != 0x6c || header[1] != 0x1b || header[2] != 0x01) {
-      cerr << "ERROR: Incorrect first three bytes of bed file: " << bedFiles[i] << endl;
-      exit(1);
-    }
-
-    string line;
-    while (getline(finBim, line)) {
-      // read bed genotype and normalize
-      genoData.readBedLine(genoLine, bedLineIn, finBed);
-      normalizeSingleSnp(genoLine, normalizedSnp, numPad, numUsed);
-      // store the dot result
-      posteriorMean[mbed] += NumericUtils::dot(normalizedSnp, conjugateResult, numPad);
-      mbed++;
-    }
-  }
-
-  ALIGN_FREE(genoLine);
-  ALIGN_FREE(bedLineIn);
-  ALIGN_FREE(normalizedSnp);
-}
-
-void GeneticCorr::estPosteriorMean(const vector <string> &bimFilesG, const vector <string> &bedFilesG,
-                                   const vector <string> &bimFilesA, const vector <string> &bedFilesA) {
-  uint64 totalSamples = NpadGeno + Npadaux;
-  uint64 totalCom = covarBasis.getC() + auxcovarBasis.getC();
-  // compute yhat = omega-1ZW
-  double *yhat = ALIGN_ALLOCATE_DOUBLES(totalSamples);
-  MKL_INT m = totalSamples;
-  MKL_INT n = totalCom;
-  double alpha = 1.0;
-  MKL_INT lda = m;
-  double beta = 0.0;
-  MKL_INT incx = 1;
-  MKL_INT incy = 1;
-  double *inputMatrix = conjugateResultFixEff + totalSamples; // the first column is the result of oinvy
-  cblas_dgemv(CblasColMajor, CblasNoTrans, m, n, alpha, inputMatrix, lda, fixEffect.data(), incx, beta, yhat, incy);
-
-  // compute omega-1y - yhat
-  double *omegaInvy = conjugateResultFixEff;
-  double *phenoData = ALIGN_ALLOCATE_DOUBLES(totalSamples);
-
-  for (uint64 n = 0; n < totalSamples; n++) {
-    phenoData[n] = omegaInvy[n] - yhat[n];
-  }
-
-  // scale the result of conjugate gradient (refer to the document)
-  NumericUtils::scaleElem(phenoData, sigma2g, NpadGeno);
-  NumericUtils::scaleElem(phenoData + NpadGeno, delta, Npadaux);
-
-  // resize posteriorMean and store the result
-  posteriorMean.resize(M);
-
-  // compute the main geno dataset result
-  computeSinglePosteriorMean(bimFilesG, bedFilesG, phenoData, 'G');
-
-  // compute the aux geno dataset result
-  computeSinglePosteriorMean(bimFilesA, bedFilesA, phenoData, 'A');
-
-  for (uint64 m = 0; m < M; m++) {
-    posteriorMean[m] /= sqrt(M);
-  }
-
-  double subIntercept = 0;
-  for (uint64 m = 0; m < M; m++) {
-    posteriorMean[m] /= sqrt(M) / genoMeanstd[m].second;
-    subIntercept += posteriorMean[m] * genoMeanstd[m].first;
-  }
-
-  fixEffect[0] -= subIntercept;
-
-  FileUtils::SafeOfstream fout;
-  std::string outputMean = outputFile + "_posteriorMean.txt";
-  fout.open(outputMean);
-  for (uint64 m = 0; m < M; m++) {
-    fout << posteriorMean[m] << "\n";
-  }
-  fout.close();
-
-  std::string outputFix = outputFile + "_fixeff.txt";
-  fout.open(outputFix);
-  for (int i = 0; i < totalCom; i++) {
-    fout << fixEffect[i] << endl;
-  }
-  fout.close();
-
-  ALIGN_FREE(yhat);
-  ALIGN_FREE(phenoData);
-}
-
 void GeneticCorr::predict(double *output, const GenoData &predictData, const CovarBasis<GenoData> &predictCov) const {
   uint64 numPredict = predictData.getNpad(); // get number of prediction samples
 
@@ -1485,12 +1379,14 @@ void GeneticCorr::predict(double *output, const GenoData &predictData, const Cov
   fout.open(predictHeight);
   fout << "Prediction (rand effect)" << "\t" << "Prediction (rand + fix effect)" << "\n";
   for (uint64 n = 0; n < numPredict; n++) {
-    fout << predictedRandomEff[n] << "\t" << output[n] << endl;
+    if (predictMaskIndivs[n])
+      fout << predictedRandomEff[n] << "\t" << output[n] << endl;
   }
   fout.close();
 
   ALIGN_FREE(predictedRandomEff);
   ALIGN_FREE(predictProjMaskSnps);
+  ALIGN_FREE(predictFixEff);
   ALIGN_FREE(snpVector);
   ALIGN_FREE(workTable);
   ALIGN_FREE(predictionSnpLookupTable);
