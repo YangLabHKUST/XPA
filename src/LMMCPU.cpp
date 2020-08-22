@@ -58,6 +58,7 @@ LMMCPU::LMMCPU(const LMMNET::GenoData &_genoData,
                uint64 _estIteration,
                int _numChrom,
                int _numCalibSnps,
+               uint64 _maxIterationConj,
                bool _useExactTrace,
                const std::string _imputeMethod,
                const std::string _outputFile) : genoData(_genoData),
@@ -68,6 +69,7 @@ LMMCPU::LMMCPU(const LMMNET::GenoData &_genoData,
                                           numChrom(_numChrom),
                                           numCalibSnps(_numCalibSnps),
                                           useExactTrace(_useExactTrace),
+                                          maxIterationConj(_maxIterationConj),
                                           imputeMethod(_imputeMethod),
                                           outputFile(_outputFile) {
   initialize();
@@ -700,9 +702,8 @@ void LMMCPU::calConjugateBatch(double *VinvChromy, const double *inputMatrix) {
 
   Timer timer;
   Timer timer1;
-  int maxIteration = 100; // Usually, the conjugate gradient converges within 100 iterations
 
-  for (int iter = 0; iter < maxIteration; iter++) {
+  for (int iter = 0; iter < maxIterationConj; iter++) {
 
     // compute XX^T * P * sigma2g / M + sigma2e * I * p
     memcpy(p_proj, p, Npad * numChrom * sizeof(double));
@@ -912,11 +913,8 @@ void LMMCPU::calConjugateWithoutMask(double *Viny, const double *inputMatrix, in
 
   Timer timer;
   Timer timer1;
-  int maxIteration = 100; // Usually, the conjugate gradient converges within 100 iterations
 
-//  cout << "original r " << sqrt(rsoldOrigin[0]) << endl;
-
-  for (int iter = 0; iter < maxIteration; iter++) {
+  for (int iter = 0; iter < maxIterationConj; iter++) {
 
     // compute XX^T * P * sigma2g / M + sigma2e * I * p
     timer1.update_time();

@@ -166,7 +166,8 @@ int main(int argc, char **argv) {
 
     GeneticCorr
         geneticCorr(genoData, covarBasis, &maskIndivs[0], auxData, auxCovBasis, &auxmaskIndivs[0], params.snpsPerBlock,
-                    params.estIterationTrace, params.estIterationTraceAux, params.estIterationDelta, params.useExactTrace, params.imputeMethod, params.outputFile);
+                    params.estIterationTrace, params.estIterationTraceAux, params.estIterationDelta, params.maxIterationConj,
+                    params.useExactTrace, params.imputeMethod, params.outputFile);
 
     cout << "Time for initializing genetic object and normalizing snps is " << timer.update_time() << " sec" << endl;
 
@@ -224,7 +225,6 @@ int main(int argc, char **argv) {
 
     double *predictOutput = ALIGN_ALLOCATE_DOUBLES(predictData.getNpad());
     geneticCorr.predict(predictOutput, predictData, predictCov);
-    ALIGN_FREE(predictOutput);
 
     return 0;
   }
@@ -232,7 +232,7 @@ int main(int argc, char **argv) {
   cout << endl << "***** Initializing lmmnet object and normlizing snps *****" << endl << endl;
 
   LMMCPU lmmcpu(genoData, covarBasis, &maskIndivs[0], params.snpsPerBlock, params.estIterationTrace, params.numChrom,
-                params.numCalibSnps, params.useExactTrace, params.imputeMethod, params.outputFile);
+                params.numCalibSnps, params.maxIterationConj, params.useExactTrace, params.imputeMethod, params.outputFile);
 
   cout << "Time for initializing lmmnet object and normalizing snps is " << timer.update_time() << " sec" << endl;
 
@@ -291,7 +291,6 @@ int main(int argc, char **argv) {
     lmmcpu.predict(predictOutput, singlepredictData, predictCov);
 
     cout << "Timer for predict new data " << timer.update_time() << " esc" << endl;
-    ALIGN_FREE(predictOutput);
 
   }
 

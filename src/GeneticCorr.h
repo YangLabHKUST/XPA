@@ -36,14 +36,15 @@ class GeneticCorr {
   const CovarBasis<AuxGenoData> &auxcovarBasis;
 
   // two masks for each dataset
-  const double *maskgenoIndivs;
-  const double *maskauxIndivs;
+  double *maskgenoIndivs;
+  double *maskauxIndivs;
 
   int snpsPerBlock;
   uint64 estIteration;
   uint64 estIterationMain;
   uint64 estIterationAux;
   uint64 estIterationDelta;
+  uint64 maxIterationConj; // number of max iteration in conjugate gradient
 
   uchar *projMaskSnps; // two datasets must analysis the same snps
 
@@ -132,20 +133,21 @@ class GeneticCorr {
   void predictFixEff(uint64 numPredict, double *fixEff, const double *predictCovarMatrix) const;
 
   // interface for RAM econ model
-  void normalizeSingleSnp(uchar* genoLine, double* normalizedSnp, uint64 numSamples, uint64 numUsed); // normalize single SNP and store in normalizedSnp
+  void normalizeSingleSnp(uchar* genoLine, double* normalizedSnp, const double* maskIndivs, uint64 numSamples, uint64 numUsed); // normalize single SNP and store in normalizedSnp
   void computeSinglePosteriorMean(const vector <string> &bimFiles, const vector <string> &bedFiles, const double* phenoData, char whichDataset);
 
  public:
   GeneticCorr(const GenoData &_genoData,
               const CovarBasis<GenoData> &_covarBasis,
-              const double *_maskgenoIndivs,
+              double *_maskgenoIndivs,
               const AuxGenoData &_auxgenoData,
               const CovarBasis<AuxGenoData> &_auxcovarBasis,
-              const double *_maskauxIndivs,
+              double *_maskauxIndivs,
               int _snpsPerBlock,
               uint64 _estIteration,
               uint64 _estIterationAux,
               uint64 _estIterationDelta,
+              uint64 _maxIterationConj,
               bool _useExactTrace,
               const std::string _inputeMethod,
               const std::string _outputFile);

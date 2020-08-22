@@ -37,6 +37,7 @@ class LMMCPU {
   int numCalibSnps;
   int snpsPerBlock; // split the matrix into block to do computation
   uint64 estIteration; // B in the initial algorithm
+  uint64 maxIterationConj; // number of max iteration in conjugate gradient
 
   uchar *projMaskSnps;
 
@@ -152,6 +153,7 @@ class LMMCPU {
          uint64 _estIteration,
          int _numChrom,
          int _numCalibSnps,
+         uint64 _maxIterationConj,
          bool _useExactTrace,
          const std::string _imputeMethod,
          const std::string _outputFile);

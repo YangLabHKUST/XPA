@@ -104,7 +104,7 @@ bool Params::processCommandLineArgs(int argc, char **argv) {
        "the number of sample iteration in estimating trace by mom estimator")
       ("estIterationDelta", value<uint64>(&estIterationDelta)->default_value(10),
        "the number of sample iteration in estimating trace by mom estimator")
-      ("maxIterationConj", value<uint64>(&maxIterationConj)->default_value(1000),
+      ("maxIterationConj", value<uint64>(&maxIterationConj)->default_value(100),
        "the number of maxiteration in computation of conjugate gradient")
       ("convergenceLevel",
        value<double>(&convergenceLevel)->default_value(1e-5),
