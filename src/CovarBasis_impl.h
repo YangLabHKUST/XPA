@@ -81,7 +81,7 @@ void CovarBasis<T>::initialize(const std::vector<std::string> &covarCols) {
   this->data_str[0] = vector<string>(this->ncols, "1");
 
   std::set<uint64> indivsSeen;
-  std::vector<double> maskForCov(this->genoData.getNpad(), 1.);
+  std::vector<double> maskForCov(this->genoData.getNpad(), 0.);
 
   if (!this->filePath.empty()) {
     string line, FID, IID;
@@ -92,7 +92,6 @@ void CovarBasis<T>::initialize(const std::vector<std::string> &covarCols) {
       iss >> FID >> IID;
       uint64 n = this->genoData.getIndivInd(FID, IID);
       if (n == GenoData::IND_MISSING) {
-        maskForCov[n] = 0.;
         if (numIgnore < 5)
           cerr << "WARNING: Ignoring indiv not in genotype data: FID=" << FID << ", IID=" << IID
                << endl;
@@ -102,7 +101,7 @@ void CovarBasis<T>::initialize(const std::vector<std::string> &covarCols) {
           cerr << "WARNING: Duplicate entry for indiv FID=" << FID << ", IID=" << IID << endl;
         } else indivsSeen.insert(n);
 
-//        maskForCov[n] = 1.; // update the mask for covariate file
+        maskForCov[n] = 1.; // update the mask for covariate file
         string covarValue;
         vector<string> covars;
         while (iss >> covarValue) covars.push_back(covarValue);
@@ -125,6 +124,12 @@ void CovarBasis<T>::initialize(const std::vector<std::string> &covarCols) {
     if (numLines != Nused) {
       cout << "WARNING: there are missing "<< Nused - numLines << " individuals in covariate file" << endl;
       cout << "Finally, there are " << numLines << " individuals in analysis" << endl;
+    }
+  } else {
+    // in this case, we do not have covariate and we will only use a column of one
+    // We cannot set mask index according to provided covarfile. Here we keep all indivs
+    for (uint64 n = 0; n < this->genoData.getN(); n++) {
+      maskForCov[n] = 1.;
     }
   }
 
